@@ -4,7 +4,7 @@ import os.path as osp
 from pathlib import Path
 import shutil
 from typing import Dict
-
+from tqdm import tqdm
 from perception_dataset.fastlabel_to_t4.fastlabel_2d_to_t4_converter import (
     FastLabel2dToT4Converter,
 )
@@ -40,13 +40,9 @@ class FastLabel2dToT4Updater(FastLabel2dToT4Converter):
     def convert(self) -> None:
         t4_datasets = sorted([d.name for d in self._input_base.iterdir() if d.is_dir()])
         anno_jsons_dict = self._load_annotation_jsons(t4_datasets, "_CAM")
-        fl_annotations = self._format_fastlabel_annotation(anno_jsons_dict)
-
-        for t4dataset_name in t4_datasets:
-            # Check if annotation exists
-            if t4dataset_name not in fl_annotations.keys():
-                continue
-
+        pbar = tqdm(total=len(anno_jsons_dict), desc="Converting annotation files")
+        for t4dataset_name, fl_annotation in self._format_fastlabel_annotation(anno_jsons_dict):
+            pbar.update(1)
             # Check if input directory exists
             input_dir = self._input_base / t4dataset_name
             input_annotation_dir = input_dir / "annotation"
@@ -88,7 +84,8 @@ class FastLabel2dToT4Updater(FastLabel2dToT4Converter):
             annotation_files_updater.convert_one_scene(
                 input_dir=input_dir,
                 output_dir=output_dir,
-                scene_anno_dict=fl_annotations[t4dataset_name],
+                scene_anno_dict=fl_annotation,
                 dataset_name=t4dataset_name,
             )
             logger.info(f"Finished updating annotations for {t4dataset_name}")
+        pbar.close()

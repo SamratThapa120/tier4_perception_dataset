@@ -22,6 +22,9 @@ class BaseConverter(ABC):
         return label_map
 
     def convert_label(self, label: str) -> str:
+        if label not in self.label_map:
+            print(f"Label {label} not found in label map")
+            return "unknown"
         return self.label_map[label]
 
 

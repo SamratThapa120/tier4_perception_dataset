@@ -3,6 +3,7 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import json
 import os.path as osp
+import glob
 from pathlib import Path
 import shutil
 from typing import Any, Dict, List, Optional, Union
@@ -51,8 +52,8 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
         self._t4dataset_name_to_merge: Dict[str, str] = dataset_corresponding
         self._camera2idx = description.get("camera_index")
         self._input_anno_files: List[Path] = []
-        for f in Path(input_anno_base).rglob("*.json"):
-            self._input_anno_files.append(f)
+        for f in glob.glob(osp.join(input_anno_base,"**/*.json"), recursive=True):
+            self._input_anno_files.append(Path(f))
         self._label_converter = LabelConverter(
             label_path=LABEL_PATH_ENUM.OBJECT_LABEL,
             attribute_path=LABEL_PATH_ENUM.ATTRIBUTE,
@@ -61,7 +62,7 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
     def convert(self):
         # Load and format Fastlabel annotations
         anno_jsons_dict = self._load_annotation_jsons()
-        fl_annotations = self._format_fastlabel_annotation(anno_jsons_dict)
+        fl_annotations = {x:y for x,y in self._format_fastlabel_annotation(anno_jsons_dict)}
 
         for t4dataset_name in self._t4dataset_name_to_merge.keys():
             # Check if input directory exists
@@ -113,7 +114,6 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
                 with open(file) as f:
                     anno_dict[file.name] = json.load(f)
                     return anno_dict
-
         pbar = tqdm(total=len(self._input_anno_files), desc="Loading annotation files")
         for file in self._input_anno_files:
             pbar.update(1)
@@ -123,9 +123,18 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
                     break
             else:
                 continue
-            with open(file) as f:
-                one_label = json.load(f)
-                anno_dict[dataset].extend(one_label)
+            anno_dict[dataset].append(file)
+        
+        # TODO: Remove this after testing
+        to_delete = []
+        for dataset_name in anno_dict.keys():
+            output_dir = self._output_base / dataset_name
+            if osp.exists(output_dir):
+                to_delete.append(dataset_name)
+        for dataset_name in to_delete:
+            print(f"output_dir {dataset_name} already exists.")
+            del anno_dict[dataset_name]
+
         pbar.close()
         return anno_dict
 
@@ -251,28 +260,26 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
         ],
         ....
         """
-        fl_annotations: Dict[str, Dict[int, List[Dict[str, Any]]]] = {}
-
         with ProcessPoolExecutor() as executor:
             futures = []
-            for filename, ann_list in sorted(annotations.items()):
-                dataset_name: str = Path(filename).stem
+            for dataset_name, ann_list_files in sorted(annotations.items()):
+                ann_list = []
+                for ann_file in ann_list_files:
+                    with open(ann_file) as f:
+                        ann_list.extend(json.load(f))
+                # dataset_name: str = Path(filename).stem
                 for ann in ann_list:
                     futures.append(executor.submit(self._process_annotation, dataset_name, ann))
-
+                fl_annotations = defaultdict(list)
                 for future in tqdm(
                     as_completed(futures),
                     total=len(futures),
                     desc=f"Processing {dataset_name} labels",
                 ):
                     dataset_name, file_id, labels = future.result()
-                    if dataset_name not in fl_annotations:
-                        fl_annotations[dataset_name] = defaultdict(list)
                     for label_t4_dict in labels:
-                        fl_annotations[dataset_name][file_id].append(label_t4_dict)
-
-        return fl_annotations
-
+                        fl_annotations[file_id].append(label_t4_dict)
+                yield dataset_name, fl_annotations
 
 def _rle_from_points(points: Points2DLike, width: int, height: int) -> Dict[str, Any]:
     """Encode points to RLE format mask.
