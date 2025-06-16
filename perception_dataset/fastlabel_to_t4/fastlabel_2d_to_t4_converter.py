@@ -52,7 +52,11 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
         self._t4dataset_name_to_merge: Dict[str, str] = dataset_corresponding
         self._camera2idx = description.get("camera_index")
         self._input_anno_files: List[Path] = []
+        already = set()
         for f in glob.glob(osp.join(input_anno_base,"**/*.json"), recursive=True):
+            if osp.basename(f) in already:
+                continue
+            already.add(osp.basename(f))
             self._input_anno_files.append(Path(f))
         self._label_converter = LabelConverter(
             label_path=LABEL_PATH_ENUM.OBJECT_LABEL,
@@ -141,7 +145,7 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
     def _process_annotation(self, dataset_name, annotation):
         filename: str = annotation["name"].split("/")[-1]
         file_id: int = int(filename.split(".")[0])
-        frame_no: int = file_id + 1
+        frame_no: int = file_id
         camera = annotation["name"].split("/")[-2]
 
         width = annotation["width"]
@@ -261,16 +265,17 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
         ....
         """
         with ProcessPoolExecutor() as executor:
-            futures = []
             for dataset_name, ann_list_files in sorted(annotations.items()):
                 ann_list = []
                 for ann_file in ann_list_files:
                     with open(ann_file) as f:
-                        ann_list.extend(json.load(f))
+                        info = json.load(f)
+                        ann_list.extend(info)
                 # dataset_name: str = Path(filename).stem
+                futures = []
                 for ann in ann_list:
                     futures.append(executor.submit(self._process_annotation, dataset_name, ann))
-                fl_annotations = defaultdict(list)
+                fl_annotations = {}
                 for future in tqdm(
                     as_completed(futures),
                     total=len(futures),
@@ -278,6 +283,8 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
                 ):
                     dataset_name, file_id, labels = future.result()
                     for label_t4_dict in labels:
+                        if file_id not in fl_annotations:
+                            fl_annotations[file_id] = []
                         fl_annotations[file_id].append(label_t4_dict)
                 yield dataset_name, fl_annotations
 

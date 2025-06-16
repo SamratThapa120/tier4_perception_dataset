@@ -3,6 +3,7 @@ from __future__ import annotations
 import os.path as osp
 from pathlib import Path
 import shutil
+import random
 from typing import Dict
 from tqdm import tqdm
 from perception_dataset.fastlabel_to_t4.fastlabel_2d_to_t4_converter import (
@@ -40,6 +41,11 @@ class FastLabel2dToT4Updater(FastLabel2dToT4Converter):
     def convert(self) -> None:
         t4_datasets = sorted([d.name for d in self._input_base.iterdir() if d.is_dir()])
         anno_jsons_dict = self._load_annotation_jsons(t4_datasets, "_CAM")
+        
+        keys = list(anno_jsons_dict.keys())
+        random.shuffle(keys)
+        anno_jsons_dict = {k: anno_jsons_dict[k] for k in keys}
+        
         pbar = tqdm(total=len(anno_jsons_dict), desc="Converting annotation files")
         for t4dataset_name, fl_annotation in self._format_fastlabel_annotation(anno_jsons_dict):
             pbar.update(1)
