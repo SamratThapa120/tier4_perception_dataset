@@ -53,10 +53,15 @@ class FastLabel2dToT4Converter(DeepenToT4Converter):
         self._camera2idx = description.get("camera_index")
         self._input_anno_files: List[Path] = []
         already = set()
-        for f in glob.glob(osp.join(input_anno_base,"**/*.json"), recursive=True):
+        previous_anno_file = {}
+        for f in tqdm(glob.glob(osp.join(input_anno_base,"**/*.json"), recursive=True), desc="Loading annotation files"):
             if osp.basename(f) in already:
+                old_size = osp.getsize(previous_anno_file[osp.basename(f)])
+                new_size = osp.getsize(f)
+                assert previous_anno_file[osp.basename(f)]!=f  and old_size == new_size, f"File size mismatch: {f}"
                 continue
             already.add(osp.basename(f))
+            previous_anno_file[osp.basename(f)] = f
             self._input_anno_files.append(Path(f))
         self._label_converter = LabelConverter(
             label_path=LABEL_PATH_ENUM.OBJECT_LABEL,

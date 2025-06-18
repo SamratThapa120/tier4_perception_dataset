@@ -1,5 +1,5 @@
 # cspell: ignore pushable, pullable, trafficcone
-bicycle: [bicycle, BICYCLE, vehicle.bicycle]
+bicycle: [bicycle, BICYCLE, vehicle.bicycle, bike]
 bus: [bus, BUS, vehicle.bus, vehicle.bus (bendy & rigid)]
 car:
   [
@@ -10,6 +10,7 @@ car:
     vehicle.construction,
     vehicle.emergency (ambulance & police),
     vehicle,
+    vehicle_car,
   ]
 motorcycle:
   [
@@ -26,10 +27,11 @@ pedestrian:
     PEDESTRIAN,
     pedestrian.adult,
     pedestrian.child,
+    person,
   ]
 other_pedestrian: [other_pedestrian]
-other_vehicle: [other_vehicle]
-truck: [truck, TRUCK, vehicle.truck]
+other_vehicle: [other_vehicle,vehicle_others]
+truck: [truck, TRUCK, vehicle.truck, vehicle_truck]
 trailer: [trailer, TRAILER, vehicle.trailer]
 ambulance: [ambulance, AMBULANCE, vehicle.ambulance]
 fire_truck: [fire_truck, FIRE_TRUCK, vehicle.fire]
@@ -48,6 +50,7 @@ traffic_cone:
     TRAFFICCONE,
     movable_object.trafficcone,
     movable_object.traffic_cone,
+    obstacle_cone,
   ]
 bollard: [bollard, BOLLARD, static_object.bollard]
 construction_worker: [construction_worker, CONSTRUCTION_WORKER, pedestrian.construction_worker]
@@ -62,7 +65,7 @@ curb: [curb]
 gate: [gate]
 guide_post: [guide_post]
 construction: [constructions, construction]
-traffic_sign: [traffic_sign]
+traffic_sign: [traffic_sign, railroad_crossing_sign]
 road_debris: [road_debris]
 other_obstacle: [other_obstacle]
 obstacle_others: [obstacle_others]
